@@ -15,7 +15,7 @@ fn main() -> ExitCode {
     }
 
     match args.day {
-        // TODO: add solution dispatch
+        1 => aoc::day1::exec(input),
         _ => {
             error!("no solution found for day {}", args.day);
             ExitCode::FAILURE
