@@ -19,7 +19,7 @@ fn part1() {{
 }}
 
 fn part2() {{
-    println!("Part 1: TODO");
+    println!("Part 2: TODO");
 }}
 
 pub fn exec<P: AsRef<Path>>(_path: P) -> ExitCode {{
