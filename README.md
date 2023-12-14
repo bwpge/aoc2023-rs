@@ -22,6 +22,12 @@ This will execute the `day1` solution with `foo.txt` as the input file.
 
 Use the `-h`/`--help` option for more information.
 
+## Documentation
+
+Each day's module includes the original problem text for reference.
+
+Documentation can be built with `cargo doc`. To avoid building every dependency's documentation, use `cargo doc --no-deps`.
+
 ## Tools
 
 ### `generate.py`

@@ -1,3 +1,5 @@
+#![doc(hidden)]
+
 /// Prints an error message to `stderr`.
 #[macro_export]
 macro_rules! error {

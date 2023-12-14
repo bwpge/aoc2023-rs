@@ -1,3 +1,5 @@
+//! Comand line argument parsing infrastructure.
+
 use std::path::PathBuf;
 
 use clap::Parser;
@@ -14,6 +16,7 @@ static VERSION: &str = concat!(
 );
 static HELP_TEMPLATE: &str = "{bin} {version}\n{author-with-newline}{about-section}\n{all-args}";
 
+/// Argument parser for this project's command line interface.
 #[derive(Debug, Parser)]
 #[command(
     name = NAME,
