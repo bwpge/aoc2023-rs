@@ -2,4 +2,5 @@
 
 pub mod cli;
 pub mod day1;
+pub mod fsutils;
 pub mod macros;
