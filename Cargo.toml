@@ -9,3 +9,11 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.75"
+
+[dependencies.clap]
+version = "4.4.11"
+features = ["cargo", "color", "derive", "string", "wrap_help"]
+
+[build-dependencies]
+vergen = { version = "8.2.6", features = ["build", "git", "git2"] }
