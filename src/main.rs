@@ -1,5 +1,6 @@
 use std::process::ExitCode;
 
+use anyhow::anyhow;
 use aoc::{cli::Cli, error};
 use clap::Parser;
 
@@ -14,10 +15,15 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    match args.day {
+    let result = match args.day {
         1 => aoc::day1::exec(input),
-        _ => {
-            error!("no solution found for day {}", args.day);
+        _ => Err(anyhow!("no solution found for day {}", args.day)),
+    };
+
+    match result {
+        Ok(_) => ExitCode::SUCCESS,
+        Err(err) => {
+            error!("{err}");
             ExitCode::FAILURE
         }
     }
