@@ -12,7 +12,9 @@ SOLUTION_TEMPLATE = """//! Solution for Advent of Code 2023, Day {day}.
 //! ## Part Two
 //!
 
-use std::{{path::Path, process::ExitCode}};
+use std::path::Path;
+
+use anyhow::Result;
 
 fn part1() {{
     println!("Part 1: TODO");
@@ -22,7 +24,8 @@ fn part2() {{
     println!("Part 2: TODO");
 }}
 
-pub fn exec<P: AsRef<Path>>(_path: P) -> ExitCode {{
+/// Executes the solution with provided input file.
+pub fn exec<P: AsRef<Path>>(_path: P) -> Result<()> {{
     part1();
     part2();
     unimplemented!()
@@ -47,7 +50,7 @@ def status(msg: str, level: int = 1):
     print(f"{indent}- {msg}")
 
 
-def update_file(path: Path, sentinel: str, before: str, day: int, mod_name: str):
+def update_file(path: Path, sentinel: str, before: str, value: str):
     lines = []
     found = False
     with open(path, "r") as f:
@@ -56,7 +59,7 @@ def update_file(path: Path, sentinel: str, before: str, day: int, mod_name: str)
             if s.startswith(sentinel):
                 found = True
             if found and s.startswith(before):
-                lines.append(f"        {day} => aoc::{mod_name}::exec(input),\n")
+                lines.append(value)
             lines.append(line)
 
     with open(path, "w", newline="\n") as f:
@@ -143,7 +146,12 @@ if __name__ == "__main__":
         f.write(SOLUTION_TEMPLATE.format(day=day, title=f": {title}" if title else ""))
 
     status("Updating main.rs")
-    update_file(main_file, "match args", "_ => {", day, mod_name)
+    update_file(
+        main_file,
+        "let result = match args.day",
+        "_ =>",
+        f"        {day} => aoc::{mod_name}::exec(input),\n",
+    )
 
     status("Updating lib.rs")
     with open(lib_file, "a+") as f:
