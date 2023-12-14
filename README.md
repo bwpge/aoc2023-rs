@@ -8,6 +8,20 @@ This project uses [`cargo`](https://github.com/rust-lang/cargo) to build and man
 
 Run `cargo build` to build the project.
 
+# Usage
+
+This project is setup as a single CLI that takes the day as the first argument, and an optional `-i`/`--input` file. If not specified, the input file defaults to `data/day<N>.txt`.
+
+Example usage:
+
+```
+cargo r -- day1 -i foo.txt
+```
+
+This will execute the `day1` solution with `foo.txt` as the input file.
+
+Use the `-h`/`--help` option for more information.
+
 ## Tools
 
 ### `generate.py`
@@ -23,7 +37,7 @@ python generate.py -n 1 -t 'Trebuchet?!'
 
 This will generate `day1.rs` in the `src` directory, and update `main.rs` and `lib.rs` to include this new module.
 
-Use the `--help` flag to display all available options.
+Use the `-h`/`--help` option for more information.
 
 ## Testing
 
