@@ -1,4 +1,4 @@
-use std::process::ExitCode;
+use std::{process::ExitCode, time::Instant};
 
 use anyhow::anyhow;
 use aoc::{cli::Cli, error};
@@ -15,6 +15,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
+    let start = Instant::now();
     let result = match args.day {
         1 => aoc::day1::exec(input),
         2 => aoc::day2::exec(input),
@@ -27,6 +28,9 @@ fn main() -> ExitCode {
         9 => aoc::day9::exec(input),
         _ => Err(anyhow!("no solution found for day {}", args.day)),
     };
+
+    let elapsed = humantime::format_duration(start.elapsed());
+    println!("\nTotal runtime: {elapsed}");
 
     match result {
         Ok(_) => ExitCode::SUCCESS,
