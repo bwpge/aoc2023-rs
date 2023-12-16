@@ -8,7 +8,7 @@ This project uses [`cargo`](https://github.com/rust-lang/cargo) to build and man
 
 Run `cargo build` to build the project.
 
-# Usage
+## Usage
 
 This project is setup as a single CLI that takes the day as the first argument, and an optional `-i`/`--input` file. If not specified, the input file defaults to `data/day<N>.txt`.
 
