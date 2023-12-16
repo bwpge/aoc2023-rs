@@ -186,7 +186,6 @@
 //! Consider all of the initial seed numbers listed in the ranges on the first
 //! line of the almanac. **What is the lowest location number that corresponds
 //! to any of the initial seed numbers?**
-//!
 
 use std::{collections::HashMap, path::Path, str::FromStr};
 
@@ -414,7 +413,7 @@ impl Almanac {
     fn find_location(&self, seed: u64) -> u64 {
         let mut value = seed;
         for key in Self::MAP_NAMES {
-            value = *&self.mappings[key].map(value);
+            value = self.mappings[key].map(value);
         }
 
         value
@@ -423,7 +422,7 @@ impl Almanac {
     fn find_seed(&self, location: u64) -> Option<u64> {
         let mut value = location;
         for &key in Self::MAP_NAMES.iter().rev() {
-            value = *&self.mappings[key].invert(value);
+            value = self.mappings[key].invert(value);
         }
 
         for seed in &self.seeds {
@@ -465,8 +464,8 @@ fn part2(almanac: Almanac) {
 }
 
 /// Executes the solution with provided input file.
-pub fn exec<P: AsRef<Path>>(_path: P) -> Result<()> {
-    let contents = std::fs::read_to_string(_path)?;
+pub fn exec<P: AsRef<Path>>(path: P) -> Result<()> {
+    let contents = std::fs::read_to_string(path)?;
 
     part1(Almanac::parse_with_mode(contents.as_str(), SeedMode::List)?);
     part2(Almanac::parse_with_mode(

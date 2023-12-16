@@ -95,7 +95,6 @@
 //! gear ratios produces 467835.
 //!
 //! **What is the sum of all of the gear ratios in your engine schematic?**
-//!
 
 use std::{path::Path, str::FromStr};
 
@@ -210,7 +209,7 @@ impl FromStr for Schematic {
 
             for (i, c) in line.char_indices() {
                 // track the first digit of the number as we iterate
-                if c.is_digit(10) {
+                if c.is_ascii_digit() {
                     if span.is_none() {
                         span = Some(Span {
                             line: j,

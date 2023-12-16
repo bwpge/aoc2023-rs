@@ -71,7 +71,6 @@
 //! Adding these together produces 281.
 //!
 //! **What is the sum of all of the calibration values?**
-//!
 
 use std::{path::Path, str::Lines};
 
@@ -115,7 +114,7 @@ fn sum_decoded(lines: Lines<'_>, style: Style) -> u32 {
         sum += (hi * 10) + lo;
     }
 
-    return sum;
+    sum
 }
 
 fn part1(lines: Lines<'_>) {

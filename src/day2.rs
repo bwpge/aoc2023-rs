@@ -94,7 +94,6 @@
 //!
 //! For each game, find the minimum set of cubes that must have been present.
 //! **What is the sum of the power of these sets?**
-//!
 
 use std::{path::Path, str::FromStr};
 
@@ -121,7 +120,7 @@ impl FromStr for Sample {
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let mut sample = Self::default();
-        let splits = s.split(", ").into_iter().map(|item| {
+        let splits = s.split(", ").map(|item| {
             item.split_once(' ')
                 .expect("number and color name should be separated by a space")
         });

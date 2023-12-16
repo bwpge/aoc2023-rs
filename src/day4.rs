@@ -122,7 +122,6 @@
 //! Process all of the original and copied scratchcards until no more
 //! scratchcards are won. Including the original set of scratchcards, **how many
 //! total scratchcards do you end up with?**
-//!
 
 use std::{
     collections::{HashMap, HashSet},
@@ -189,12 +188,12 @@ impl FromStr for Card {
     }
 }
 
-fn part1(cards: &Vec<Card>) {
+fn part1(cards: &[Card]) {
     let sum: u64 = cards.iter().map(Card::points).sum();
     println!("Part 1: {sum}");
 }
 
-fn part2(cards: &Vec<Card>) {
+fn part2(cards: &[Card]) {
     let mut counts: HashMap<u64, u64> = map![];
 
     for card in cards {

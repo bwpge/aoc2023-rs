@@ -22,7 +22,7 @@ macro_rules! warn {
 ///
 /// Taken verbatim from [`map_macro`][map_macro] crate.
 ///
-/// [`map_macro`]: https://crates.io/crates/map-macro
+/// [map_macro]: https://crates.io/crates/map-macro
 #[macro_export]
 macro_rules! set {
     {$($v: expr),* $(,)?} => {
@@ -35,7 +35,7 @@ macro_rules! set {
 ///
 /// Taken verbatim from [`map_macro`][map_macro] crate.
 ///
-/// [`map_macro`]: https://crates.io/crates/map-macro
+/// [map_macro]: https://crates.io/crates/map-macro
 #[macro_export]
 macro_rules! map {
     {$($k: expr => $v: expr),* $(,)?} => {
