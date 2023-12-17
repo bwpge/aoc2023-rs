@@ -26,6 +26,7 @@ fn main() -> ExitCode {
         7 => aoc::day7::exec(input),
         8 => aoc::day8::exec(input),
         9 => aoc::day9::exec(input),
+        10 => aoc::day10::exec(input),
         _ => Err(anyhow!("no solution found for day {}", args.day)),
     };
 
