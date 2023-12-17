@@ -233,7 +233,7 @@ impl FromStr for Reading {
 
 fn part1(readings: &[Reading]) {
     let sum = readings
-        .into_iter()
+        .iter()
         .fold(0, |value, r| value + r.analyze(Mode::Future));
 
     println!("Part 1: {sum}");
@@ -241,7 +241,7 @@ fn part1(readings: &[Reading]) {
 
 fn part2(readings: &[Reading]) {
     let sum = readings
-        .into_iter()
+        .iter()
         .fold(0, |value, r| value + r.analyze(Mode::Past));
 
     println!("Part 2: {sum}");
