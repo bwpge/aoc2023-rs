@@ -1,7 +1,7 @@
 use std::{process::ExitCode, time::Instant};
 
 use anyhow::anyhow;
-use aoc::{cli::Cli, error};
+use aoc::{cli::Cli, error, solutions};
 use clap::Parser;
 
 fn main() -> ExitCode {
@@ -17,16 +17,16 @@ fn main() -> ExitCode {
 
     let start = Instant::now();
     let result = match args.day {
-        1 => aoc::day1::exec(input),
-        2 => aoc::day2::exec(input),
-        3 => aoc::day3::exec(input),
-        4 => aoc::day4::exec(input),
-        5 => aoc::day5::exec(input),
-        6 => aoc::day6::exec(input),
-        7 => aoc::day7::exec(input),
-        8 => aoc::day8::exec(input),
-        9 => aoc::day9::exec(input),
-        10 => aoc::day10::exec(input),
+        1 => solutions::day01::exec(input),
+        2 => solutions::day02::exec(input),
+        3 => solutions::day03::exec(input),
+        4 => solutions::day04::exec(input),
+        5 => solutions::day05::exec(input),
+        6 => solutions::day06::exec(input),
+        7 => solutions::day07::exec(input),
+        8 => solutions::day08::exec(input),
+        9 => solutions::day09::exec(input),
+        10 => solutions::day10::exec(input),
         _ => Err(anyhow!("no solution found for day {}", args.day)),
     };
 
