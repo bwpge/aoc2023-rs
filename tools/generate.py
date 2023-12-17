@@ -28,6 +28,7 @@ fn part2() {{
 pub fn exec<P: AsRef<Path>>(_path: P) -> Result<()> {{
     part1();
     part2();
+
     unimplemented!()
 }}
 """
@@ -126,23 +127,24 @@ if __name__ == "__main__":
     day = args.day
     src_dir = parent_dir.joinpath("src")
     title = args.title or ""
-    mod_name = f"day{day}"
-    mod_file = src_dir.joinpath(f"{mod_name}.rs")
+    mod_name = f"day{day:02}"
+    mod_dir = src_dir.joinpath(f"solutions/{mod_name}")
     main_file = src_dir.joinpath(f"main.rs")
-    lib_file = src_dir.joinpath(f"lib.rs")
+    solution_mod = src_dir.joinpath(f"solutions/mod.rs")
 
     if src_dir.is_file():
         bail("`src` path exists and is not a directory")
     if not src_dir.exists():
         bail("`src` directory does not exist")
-    if mod_file.exists():
-        print(f"WARNING: the module `{mod_file.name}` already exists.\n")
+    if mod_dir.exists():
+        print(f"WARNING: the module `{mod_dir.name}` already exists.\n")
         if not confirm():
             sys.exit(0)
 
     print(f"\nGenerating solution:")
     status("Creating module")
-    with open(mod_file, "w") as f:
+    mod_dir.mkdir()
+    with open(mod_dir.joinpath("mod.rs"), "w") as f:
         f.write(SOLUTION_TEMPLATE.format(day=day, title=f": {title}" if title else ""))
 
     status("Updating main.rs")
@@ -150,11 +152,11 @@ if __name__ == "__main__":
         main_file,
         "let result = match args.day",
         "_ =>",
-        f"        {day} => aoc::{mod_name}::exec(input),\n",
+        f"        {day} => solutions::{mod_name}::exec(input),\n",
     )
 
-    status("Updating lib.rs")
-    with open(lib_file, "a+") as f:
+    status("Updating solutions module")
+    with open(solution_mod, "a+") as f:
         f.write(f"pub mod {mod_name};\n")
 
     if not args.no_fmt:
