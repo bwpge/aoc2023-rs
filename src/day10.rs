@@ -486,11 +486,11 @@ impl Maze {
         pos.y < self.grid.len() && pos.x < self.grid[0].len()
     }
 
-    fn adjacent(&self, pos: Coord) -> Vec<Coord> {
+    fn adjacent(&self, pos: &Coord) -> Vec<Coord> {
         [pos.north(), pos.east(), pos.south(), pos.west()]
             .into_iter()
             .flatten()
-            .filter(|c| self.contains(c) && self.is_connected(&pos, c))
+            .filter(|c| self.contains(c) && self.is_connected(pos, c))
             .collect()
     }
 
@@ -540,7 +540,7 @@ impl Maze {
             }
             distances.insert(node.clone(), dist);
 
-            for n in self.adjacent(node) {
+            for n in self.adjacent(&node) {
                 nodes.push_back((n, dist + 1));
             }
         }
@@ -584,7 +584,7 @@ impl Maze {
 
         while let Some(node) = nodes.pop_front() {
             visited.insert(node.clone());
-            self.adjacent(node)
+            self.adjacent(&node)
                 .into_iter()
                 .filter(|n| !visited.contains(n))
                 .for_each(|n| nodes.push_back(n));
@@ -594,27 +594,20 @@ impl Maze {
     }
 
     fn replace_start_tile(&mut self) {
-        let n = self
-            .start
-            .north()
-            .map(|c| self.connects(&c, &self.start))
-            .unwrap_or_default();
-        let e = self
-            .start
-            .east()
-            .map(|c| self.connects(&c, &self.start))
-            .unwrap_or_default();
-        let s = self
-            .start
-            .south()
-            .map(|c| self.connects(&c, &self.start))
-            .unwrap_or_default();
-        let w = self
-            .start
-            .west()
-            .map(|c| self.connects(&c, &self.start))
-            .unwrap_or_default();
+        let dirs = [
+            self.start.north(),
+            self.start.east(),
+            self.start.south(),
+            self.start.west(),
+        ]
+        .into_iter()
+        .map(|opt| {
+            opt.map(|c| self.connects(&c, &self.start))
+                .unwrap_or_default()
+        })
+        .collect::<Vec<_>>();
 
+        let (n, e, s, w) = (dirs[0], dirs[1], dirs[2], dirs[3]);
         let c = match (n, e, s, w) {
             (true, false, true, false) => '|',
             (false, true, false, true) => '-',
@@ -693,6 +686,90 @@ pub fn exec<P: AsRef<Path>>(path: P) -> Result<()> {
 mod tests {
     use super::*;
 
+    static SIMPLE_PIPES: &str = "\
+        .....\n\
+        .S-7.\n\
+        .|.|.\n\
+        .L-J.\n\
+        .....\n";
+
+    static EXAMPLE_PIPES: &str = "\
+        -L|F7\n\
+        7S-7|\n\
+        L|7||\n\
+        -L-J|\n\
+        L|-JF\n";
+
+    #[test]
+    fn maze_parse() {
+        let maze = Maze::from_str(EXAMPLE_PIPES).unwrap();
+        assert_eq!(maze.grid.len(), 5);
+        assert_eq!(maze.grid[0].len(), 5);
+    }
+
+    #[test]
+    fn maze_connects() {
+        let maze = Maze::from_str(SIMPLE_PIPES).unwrap();
+        // has the form: ((x, y), (n, e, s, w))
+        let test_data = vec![
+            ((0, 0), (false, false, false, false)), // .
+            ((1, 1), (false, true, true, false)),   // S => deduces to F
+            ((2, 1), (false, true, false, true)),   // -
+            ((3, 1), (false, false, true, true)),   // 7
+            ((1, 2), (true, false, true, false)),   // |
+            ((3, 2), (true, false, true, false)),   // |
+            ((1, 3), (true, true, false, false)),   // L
+            ((2, 3), (false, true, false, true)),   // -
+            ((3, 3), (true, false, false, true)),   // J
+        ];
+
+        for ((x, y), (expect_n, expect_e, expect_s, expect_w)) in test_data {
+            let pos = Coord { x, y };
+            let msg = format!("at pos=({}, {})", pos.x, pos.y);
+            assert_eq!(
+                maze.connects_to_dir(&pos, Direction::North),
+                expect_n,
+                "{msg}"
+            );
+            assert_eq!(
+                maze.connects_to_dir(&pos, Direction::East),
+                expect_e,
+                "{msg}"
+            );
+            assert_eq!(
+                maze.connects_to_dir(&pos, Direction::South),
+                expect_s,
+                "{msg}"
+            );
+            assert_eq!(
+                maze.connects_to_dir(&pos, Direction::West),
+                expect_w,
+                "{msg}"
+            );
+        }
+    }
+
+    #[test]
+    fn maze_adjacent() {
+        let maze = Maze::from_str(SIMPLE_PIPES).unwrap();
+        // has the form: ((x, y), [adjacent coords])
+        let test_data = vec![
+            ((1, 1), vec![(1, 2), (2, 1)]),
+            ((2, 1), vec![(1, 1), (3, 1)]),
+            ((2, 2), vec![]),
+            ((3, 3), vec![(3, 2), (2, 3)]),
+        ];
+
+        for ((x, y), coords) in test_data {
+            let adjacent = maze.adjacent(&Coord { x, y });
+            assert_eq!(adjacent.len(), coords.len());
+
+            for pos in coords.into_iter().map(|t| Coord { x: t.0, y: t.1 }) {
+                assert!(adjacent.contains(&pos));
+            }
+        }
+    }
+
     #[test]
     fn maze_furthest() {
         let data = "\
@@ -706,7 +783,7 @@ mod tests {
     }
 
     #[test]
-    fn maze_enclosed_complex() {
+    fn maze_enclosed() {
         let data = "\
             FF7FSF7F7F7F7F7F---7\n\
             L|LJ||||||||||||F--J\n\
