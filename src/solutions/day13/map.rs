@@ -63,8 +63,17 @@ impl Map {
         // the problem states every map has a reflection line (either row or
         // column) -- if the row method returns None, we must be able to unwrap
         // the column value
-        self.find_reflection_row().unwrap_or_else(|| {
-            self.find_reflection_col()
+        self.find_reflection_row(0).unwrap_or_else(|| {
+            self.find_reflection_col(0)
+                .expect("no row reflection found, grid must have a column reflection")
+        })
+    }
+
+    /// Finds either a row or column [`Reflection`] that would exist if a single
+    /// tile was flipped (e.g., from Ash to Rock).
+    pub fn find_reflection_smudged(&self) -> Reflection {
+        self.find_reflection_row(1).unwrap_or_else(|| {
+            self.find_reflection_col(1)
                 .expect("no row reflection found, grid must have a column reflection")
         })
     }
@@ -79,7 +88,7 @@ impl Map {
     ///
     /// The total matches we need is the minimum amount of elements contained in
     /// either of the two windows.
-    fn find_reflection_row(&self) -> Option<Reflection> {
+    fn find_reflection_row(&self, smudges: usize) -> Option<Reflection> {
         for i in 0..self.height() {
             let top = 0..i;
             let bottom = i..self.height();
@@ -90,15 +99,19 @@ impl Map {
                 continue;
             }
 
+            // by using a running tally of errors, we can find "smudged" matches as
+            // long as the total error count is within the threshold
+            let mut errors = 0;
             let mut matches = 0;
             for (r1, r2) in self.grid[top].iter().rev().zip(&self.grid[bottom]) {
-                if r1 != r2 {
+                errors += r1.iter().zip(r2).filter(|(&a, &b)| a != b).count();
+                if errors > smudges {
                     break;
                 }
                 matches += 1;
             }
 
-            if matches == required {
+            if matches == required && errors == smudges {
                 return Some(Reflection::Row(i));
             }
         }
@@ -112,7 +125,7 @@ impl Map {
     /// implemented slightly differently since we cannot slice columns from
     /// nested vectors. This could probably be easier with a crate like
     /// `ndarray`, but it's good practice to manually implement this logic.
-    fn find_reflection_col(&self) -> Option<Reflection> {
+    fn find_reflection_col(&self, smudges: usize) -> Option<Reflection> {
         for i in 0..self.width() {
             let left = 0..i;
             let right = i..self.width();
@@ -122,17 +135,22 @@ impl Map {
                 continue;
             }
 
+            let mut errors = 0;
             let mut matches = 0;
             for (c1, c2) in left.rev().zip(right) {
-                // instead of comparing slices, we can just check if all
-                // elements in each row are equal at the specified columns
-                if !self.grid.iter().all(|row| row[c1] == row[c2]) {
+                // TODO: fix this equality logic -- need to count errors per column, not total columns
+                errors += self
+                    .grid
+                    .iter()
+                    .map(|row| if row[c1] == row[c2] { 0 } else { 1 })
+                    .sum::<usize>();
+                if errors > smudges {
                     break;
                 }
                 matches += 1;
             }
 
-            if matches == required {
+            if matches == required && errors == smudges {
                 return Some(Reflection::Column(i));
             }
         }
@@ -226,8 +244,8 @@ mod tests {
 
         for (input, expected_r, expected_c) in data {
             let m = Map::from_str(input).unwrap();
-            assert_eq!(m.find_reflection_row(), expected_r);
-            assert_eq!(m.find_reflection_col(), expected_c);
+            assert_eq!(m.find_reflection_row(0), expected_r);
+            assert_eq!(m.find_reflection_col(0), expected_c);
         }
     }
 
@@ -238,6 +256,39 @@ mod tests {
         for (input, expected) in data {
             let m = Map::from_str(input).unwrap();
             assert_eq!(m.find_reflection().summarize(), expected);
+        }
+    }
+
+    #[test]
+    fn map_find_reflection_row_smudge() {
+        let data = vec![
+            (
+                "#.##..##.\n\
+                ..#.##.#.\n\
+                ##......#\n\
+                ##......#\n\
+                ..#.##.#.\n\
+                ..##..##.\n\
+                #.#.##.#.\n",
+                Some(Reflection::Row(3)),
+            ),
+            //
+            (
+                "#...##..#\n\
+                #....#..#\n\
+                ..##..###\n\
+                #####.##.\n\
+                #####.##.\n\
+                ..##..###\n\
+                #....#..#\n",
+                Some(Reflection::Row(1)),
+            ),
+        ];
+
+        for (input, expected) in data {
+            let m = Map::from_str(input).unwrap();
+            // specify 1 error tolerance to find the new reflection row
+            assert_eq!(m.find_reflection_row(1), expected);
         }
     }
 }
