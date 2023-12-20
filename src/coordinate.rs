@@ -1,4 +1,17 @@
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+/// Represents a [cardinal direction](https://en.wikipedia.org/wiki/Cardinal_direction).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Direction {
+    /// Up, forward, or an azimuth of 0°
+    North,
+    /// Right, or an azimuth 90°
+    East,
+    /// Down, back, or an azimuth of 180°
+    South,
+    /// Left, or an azimuth of 270°
+    West,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Coordinate {
     pub x: usize,
     pub y: usize,
@@ -60,6 +73,21 @@ impl Coordinate {
             });
         }
         None
+    }
+
+    /// Returns the coordinate pointed to by the given `dir`.
+    ///
+    /// For example, given a coordinate of `(0, 1)`, this method would return
+    /// `(0, 0)` for [`Direction::North`]. Likewise, this method would return
+    /// `None` for a [`Direction::West`], since `(-1, 1)` is out of bounds for
+    /// a [Coordinate].
+    pub fn by_direction(&self, dir: Direction) -> Option<Coordinate> {
+        match dir {
+            Direction::North => self.north(),
+            Direction::East => self.east(),
+            Direction::South => self.south(),
+            Direction::West => self.west(),
+        }
     }
 }
 

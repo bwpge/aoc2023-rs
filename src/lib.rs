@@ -6,4 +6,4 @@ pub mod fsutils;
 pub mod macros;
 pub mod solutions;
 
-pub use coordinate::Coordinate;
+pub use coordinate::{Coordinate, Direction};

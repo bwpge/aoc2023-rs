@@ -24,7 +24,7 @@ impl GalaxyMap {
         let mut values = set![];
         for (i, c1) in self.galaxies.iter().enumerate() {
             for c2 in &self.galaxies[(i + 1)..] {
-                values.insert((c1.clone(), c2.clone()));
+                values.insert((*c1, *c2));
             }
         }
 
