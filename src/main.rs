@@ -30,6 +30,7 @@ fn main() -> ExitCode {
         11 => solutions::day11::exec(input),
         12 => solutions::day12::exec(input),
         13 => solutions::day13::exec(input),
+        14 => solutions::day14::exec(input),
         _ => Err(anyhow!("no solution found for day {}", args.day)),
     };
 
