@@ -23,6 +23,27 @@ impl Coordinate {
         Self { x, y }
     }
 
+    /// Returns the equivalent one-dimensional index.
+    ///
+    /// This method is essentially just a wrapper for the linear equation
+    /// `y = m*x + b`.
+    pub fn to_index(&self, width: usize) -> usize {
+        self.y * width + self.x
+    }
+
+    /// Returns a [Coordinate] based on `offset` and row `width`.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if `width` is `0`.
+    pub fn from_index(offset: usize, width: usize) -> Self {
+        assert!(width > 0, "width must be non-zero to create xy-coordinates");
+        Self {
+            x: offset / width,
+            y: offset % width,
+        }
+    }
+
     /// Returns the coordinate directly north to this one.
     ///
     /// Returns `None` if the coordinate cannot be represented by [`usize`].
