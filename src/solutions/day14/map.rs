@@ -4,12 +4,7 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::bail;
-
-use crate::{
-    coordinate::{Coordinate, Direction},
-    map,
-};
+use crate::{map, Coordinate, Direction, Grid};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Tile {
@@ -76,33 +71,12 @@ impl Iterator for GridIterator {
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Map {
-    grid: Vec<Vec<Tile>>,
+    grid: Grid<Tile>,
 }
 
 impl Map {
-    /// Returns the tile at the given position.
-    pub fn at<C: Into<Coordinate>>(&self, pos: C) -> Tile {
-        let c: Coordinate = pos.into();
-        self.grid[c.y][c.x]
-    }
-
-    /// Returns the number of columns in the underlying grid.
-    pub fn width(&self) -> usize {
-        self.grid[0].len()
-    }
-
-    /// Returns the number of rows in the underlying grid.
-    pub fn height(&self) -> usize {
-        self.grid.len()
-    }
-
-    pub fn contains<C: Into<Coordinate>>(&self, pos: C) -> bool {
-        let c: Coordinate = pos.into();
-        c.x < self.width() && c.y < self.height()
-    }
-
     pub fn tilt(&mut self, dir: Direction) {
         // this is a naive solution where we keep iterating over the board and
         // move every rock until none can move anymore. a better solution would
@@ -113,11 +87,12 @@ impl Map {
         let mut running = true;
         while running {
             let mut moved = false;
-            for (x, y) in self.iter_coords() {
-                if self.at((x, y)) != Tile::Rounded {
+            for i in 0..self.grid.len() {
+                let pos = Coordinate::from_index(i, self.grid.width());
+                if self.grid[pos] != Tile::Rounded {
                     continue;
                 }
-                moved |= self.apply_force((x, y), dir);
+                moved |= self.apply_force(pos, dir);
             }
             running &= moved;
         }
@@ -129,7 +104,7 @@ impl Map {
         }
 
         use Direction::*;
-        type Ty = Vec<Vec<Tile>>;
+        type Ty = Grid<Tile>;
         let dirs = [North, West, South, East];
 
         let mut states: HashMap<Ty, Ty> = map![];
@@ -190,7 +165,7 @@ impl Map {
     /// platform, including the row the rock is on.
     pub fn load(&self) -> usize {
         self.grid
-            .iter()
+            .rows()
             .rev()
             .enumerate()
             .flat_map(|(i, row)| row.iter().copied().map(move |tile| (i + 1, tile)))
@@ -206,49 +181,18 @@ impl Map {
     fn apply_force<C: Into<Coordinate>>(&mut self, pos: C, dir: Direction) -> bool {
         let c1: Coordinate = pos.into();
 
-        if self.at(c1) != Tile::Rounded {
+        if self.grid[c1] != Tile::Rounded {
             return false;
         }
 
         if let Some(c2) = c1.by_direction(dir) {
-            if !self.contains(c2) || self.at(c2) != Tile::Empty {
-                return false;
+            if let Some(&Tile::Empty) = self.grid.get(c2) {
+                self.grid.swap(c1, c2);
+                return true;
             }
-            self.grid[c2.y][c2.x] = Tile::Rounded;
-            self.grid[c1.y][c1.x] = Tile::Empty;
-            return true;
         }
 
         false
-    }
-
-    fn iter_coords(&self) -> GridIterator {
-        GridIterator::new(self.width(), self.height())
-    }
-}
-
-impl fmt::Display for Map {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for row in &self.grid {
-            for tile in row {
-                write!(f, "{tile}")?;
-            }
-            f.write_char('\n')?;
-        }
-
-        Ok(())
-    }
-}
-
-impl fmt::Debug for Map {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = self.to_string();
-
-        f.write_str("Map {\n")?;
-        for line in s.lines() {
-            writeln!(f, "    {line}")?;
-        }
-        f.write_char('}')
     }
 }
 
@@ -256,25 +200,7 @@ impl FromStr for Map {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut grid = vec![];
-        let mut width = None;
-
-        for line in s.lines() {
-            let mut row = vec![];
-            for c in line.chars() {
-                row.push(Tile::from(c));
-            }
-            if let Some(w) = width {
-                if w != row.len() {
-                    bail!("invalid grid data");
-                }
-            }
-            width = Some(row.len());
-            grid.push(row);
-        }
-        if grid.is_empty() {
-            bail!("invalid grid data");
-        }
+        let grid = Grid::from_str(s)?;
 
         Ok(Self { grid })
     }
@@ -311,8 +237,8 @@ mod tests {
     #[test]
     fn parse_map() {
         let m = Map::from_str(EXAMPLE_MAP).unwrap();
-        assert_eq!(m.width(), 10);
-        assert_eq!(m.height(), 10);
+        assert_eq!(m.grid.width(), 10);
+        assert_eq!(m.grid.height(), 10);
     }
 
     #[test]
