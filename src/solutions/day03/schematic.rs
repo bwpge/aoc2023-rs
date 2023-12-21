@@ -2,6 +2,8 @@ use std::str::FromStr;
 
 use anyhow::bail;
 
+use crate::Grid;
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 struct Span {
     line: usize,
@@ -33,18 +35,16 @@ impl Gear {
 
 #[derive(Debug)]
 pub struct Schematic {
-    grid: Vec<Vec<char>>,
+    grid: Grid<char>,
     numbers: Vec<Span>,
     symbols: Vec<(usize, usize)>,
 }
 
 impl Schematic {
-    fn at(&self, x: usize, y: usize) -> char {
-        self.grid[y][x]
-    }
-
     fn span_value(&self, part: &Span) -> Option<u64> {
-        let s: String = self.grid[part.line][part.start..part.end].iter().collect();
+        let s: String = self.grid.row(part.line)[part.start..part.end]
+            .iter()
+            .collect();
         u64::from_str(&s).ok()
     }
 
@@ -66,7 +66,7 @@ impl Schematic {
     pub fn gears(&self) -> Vec<Gear> {
         let mut list = vec![];
         for &(x, y) in &self.symbols {
-            if self.at(x, y) != '*' {
+            if self.grid[(x, y)] != '*' {
                 continue;
             }
             let adjacent = self
@@ -97,7 +97,6 @@ impl FromStr for Schematic {
             bail!("grid data must have at least one line")
         }
 
-        let mut grid = vec![];
         let mut parts = vec![];
         let mut symbols = vec![];
 
@@ -106,7 +105,6 @@ impl FromStr for Schematic {
             if line.is_empty() {
                 bail!("grid line must not be empty");
             }
-            grid.push(line.chars().collect());
             let width = line.len();
 
             for (i, c) in line.char_indices() {
@@ -139,7 +137,7 @@ impl FromStr for Schematic {
         }
 
         Ok(Self {
-            grid,
+            grid: Grid::from_str(s)?,
             numbers: parts,
             symbols,
         })

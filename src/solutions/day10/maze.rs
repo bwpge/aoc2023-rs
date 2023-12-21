@@ -3,11 +3,9 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::{anyhow, bail};
+use anyhow::anyhow;
 
-use crate::map;
-
-use super::coord::{Coord, Direction};
+use crate::{map, Coordinate, Direction, Grid};
 
 #[derive(Debug, Default, PartialEq, Eq)]
 struct Sample {
@@ -86,13 +84,13 @@ impl Sample {
 
 #[derive(Debug)]
 pub struct Maze {
-    grid: Vec<Vec<char>>,
-    start: Coord,
-    main_loop: HashSet<Coord>,
+    grid: Grid<char>,
+    start: Coordinate,
+    main_loop: HashSet<Coordinate>,
 }
 
 impl Maze {
-    fn new(grid: Vec<Vec<char>>, start: Coord) -> Self {
+    fn new(grid: Grid<char>, start: Coordinate) -> Self {
         let mut maze = Self {
             grid,
             start,
@@ -104,19 +102,11 @@ impl Maze {
         maze
     }
 
-    fn at(&self, pos: &Coord) -> char {
-        self.grid[pos.y][pos.x]
-    }
-
-    fn contains(&self, pos: &Coord) -> bool {
-        pos.y < self.grid.len() && pos.x < self.grid[0].len()
-    }
-
-    fn adjacent(&self, pos: &Coord) -> Vec<Coord> {
+    fn adjacent(&self, pos: Coordinate) -> Vec<Coordinate> {
         [pos.north(), pos.east(), pos.south(), pos.west()]
             .into_iter()
             .flatten()
-            .filter(|c| self.contains(c) && self.is_connected(pos, c))
+            .filter(|c| self.grid.contains(c) && self.is_connected(pos, *c))
             .collect()
     }
 
@@ -125,11 +115,11 @@ impl Maze {
     ///
     /// This method validates the boundaries of the grid and rules of pipe
     /// connections.
-    fn connects_to_dir(&self, pos: &Coord, dir: Direction) -> bool {
-        if !self.contains(pos) {
+    fn connects_to_dir(&self, pos: Coordinate, dir: Direction) -> bool {
+        if !self.grid.contains(pos) {
             return false;
         }
-        let c = self.at(pos);
+        let c = self.grid[pos];
 
         if c == 'S' {
             return true;
@@ -144,29 +134,29 @@ impl Maze {
     }
 
     /// Checks if `from` can connect to the `to` coordinate.
-    fn connects(&self, from: &Coord, to: &Coord) -> bool {
-        Direction::with_coords(from, to)
+    fn connects(&self, from: Coordinate, to: Coordinate) -> bool {
+        from.direction(to)
             .map(|d| self.connects_to_dir(from, d))
             .unwrap_or_default()
     }
 
     /// Checks if both `a` and `b` are connected. That is, whether or not `a`
     /// can connect to `b`, and `b` can connect to `a`.
-    fn is_connected(&self, a: &Coord, b: &Coord) -> bool {
+    fn is_connected(&self, a: Coordinate, b: Coordinate) -> bool {
         self.connects(a, b) && self.connects(b, a)
     }
 
     pub fn furthest(&self) -> u64 {
-        let mut distances: HashMap<Coord, u64> = map![];
-        let mut nodes = VecDeque::from([(self.start.clone(), 0u64)]);
+        let mut distances: HashMap<Coordinate, u64> = map![];
+        let mut nodes = VecDeque::from([(self.start, 0u64)]);
 
         while let Some((node, dist)) = nodes.pop_front() {
             if distances.contains_key(&node) && distances[&node] <= dist {
                 continue;
             }
-            distances.insert(node.clone(), dist);
+            distances.insert(node, dist);
 
-            for n in self.adjacent(&node) {
+            for n in self.adjacent(node) {
                 nodes.push_back((n, dist + 1));
             }
         }
@@ -174,10 +164,23 @@ impl Maze {
         distances.values().copied().max().unwrap_or_default()
     }
 
+    /// Returns the number of tiles fully enclosed by the main loop.
+    ///
+    /// A tile is considered enclosed if no path exists such that the tile can
+    /// reach the edge of the grid, including by "squeezing" between pipes.
+    ///
+    /// Pathing logic is implemented using tile subsampling and fill logic.
+    /// Since main loop can only exist within the boundaries of the grid
+    /// (meaning, it cannot exit the grid and re-enter somewhere else), every
+    /// edge of the grid is considered external. By scanning each grid line from
+    /// left to right, a subsample can determine which parts are external (e.g.,
+    /// filled) or not by flipping the quadrant when a main loop pipe is
+    /// encountered. If all quadrants of the subsample are filled, it is
+    /// considered enclosed.
     pub fn enclosed(&self) -> u64 {
         let mut total = 0;
 
-        for (y, row) in self.grid.iter().enumerate() {
+        for (y, row) in self.grid.rows().enumerate() {
             let mut last: Option<Sample> = None;
 
             for (x, &c) in row.iter().enumerate() {
@@ -186,7 +189,7 @@ impl Maze {
                     None => false,
                 };
 
-                let next = if self.main_loop.contains(&Coord { x, y }) {
+                let next = if self.main_loop.contains(&Coordinate::new(x, y)) {
                     Sample::with_pipe(c, top_left)
                 } else {
                     Sample::new(top_left)
@@ -205,12 +208,12 @@ impl Maze {
     /// Traces the main loop following pipe connection rules, and stores those
     /// coordinates internally.
     fn trace_main_loop(&mut self) {
-        let mut nodes = VecDeque::from([self.start.clone()]);
+        let mut nodes = VecDeque::from([self.start]);
         let mut visited = HashSet::new();
 
         while let Some(node) = nodes.pop_front() {
-            visited.insert(node.clone());
-            self.adjacent(&node)
+            visited.insert(node);
+            self.adjacent(node)
                 .into_iter()
                 .filter(|n| !visited.contains(n))
                 .for_each(|n| nodes.push_back(n));
@@ -228,7 +231,7 @@ impl Maze {
         ]
         .into_iter()
         .map(|opt| {
-            opt.map(|c| self.connects(&c, &self.start))
+            opt.map(|c| self.connects(c, self.start))
                 .unwrap_or_default()
         })
         .collect::<Vec<_>>();
@@ -243,19 +246,19 @@ impl Maze {
             (false, true, true, false) => 'F',
             _ => panic!("unknown starting tile from connections"),
         };
-        self.grid[self.start.y][self.start.x] = c;
+        self.grid[self.start] = c;
     }
 
     /// Searches the grid for an `S` tile and returns the coordinate if found.
-    fn find_start_pos(grid: &[Vec<char>]) -> Option<Coord> {
-        for (y, line) in grid.iter().enumerate() {
+    fn find_start_pos(grid: &Grid<char>) -> Option<Coordinate> {
+        for (y, line) in grid.rows().enumerate() {
             if !line.contains(&'S') {
                 continue;
             }
 
             for (x, &c) in line.iter().enumerate() {
                 if c == 'S' {
-                    return Some(Coord { x, y });
+                    return Some(Coordinate { x, y });
                 }
             }
         }
@@ -268,19 +271,16 @@ impl FromStr for Maze {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> std::prelude::v1::Result<Self, Self::Err> {
-        let grid: Vec<Vec<char>> = s
-            .lines()
-            .map(|line| line.chars().collect::<Vec<_>>())
-            .collect();
+        let grid = Grid::from_str(s)?;
 
-        // verify grid dimensions
-        if grid.is_empty() || grid[0].is_empty() {
-            bail!("grid must not be empty");
-        }
-        let width = grid[0].len();
-        if !grid.iter().all(|row| row.len() == width) {
-            bail!("grid must have equal width for all columns");
-        }
+        // // verify grid dimensions
+        // if grid.is_empty() || grid[0].is_empty() {
+        //     bail!("grid must not be empty");
+        // }
+        // let width = grid[0].len();
+        // if !grid.iter().all(|row| row.len() == width) {
+        //     bail!("grid must have equal width for all columns");
+        // }
 
         // find start position
         let start = Self::find_start_pos(&grid)
@@ -311,8 +311,8 @@ mod tests {
     #[test]
     fn maze_parse() {
         let maze = Maze::from_str(EXAMPLE_PIPES).unwrap();
-        assert_eq!(maze.grid.len(), 5);
-        assert_eq!(maze.grid[0].len(), 5);
+        assert_eq!(maze.grid.width(), 5);
+        assert_eq!(maze.grid.height(), 5);
     }
 
     #[test]
@@ -332,25 +332,25 @@ mod tests {
         ];
 
         for ((x, y), (expect_n, expect_e, expect_s, expect_w)) in test_data {
-            let pos = Coord { x, y };
+            let pos = Coordinate::new(x, y);
             let msg = format!("at pos=({}, {})", pos.x, pos.y);
             assert_eq!(
-                maze.connects_to_dir(&pos, Direction::North),
+                maze.connects_to_dir(pos, Direction::North),
                 expect_n,
                 "{msg}"
             );
             assert_eq!(
-                maze.connects_to_dir(&pos, Direction::East),
+                maze.connects_to_dir(pos, Direction::East),
                 expect_e,
                 "{msg}"
             );
             assert_eq!(
-                maze.connects_to_dir(&pos, Direction::South),
+                maze.connects_to_dir(pos, Direction::South),
                 expect_s,
                 "{msg}"
             );
             assert_eq!(
-                maze.connects_to_dir(&pos, Direction::West),
+                maze.connects_to_dir(pos, Direction::West),
                 expect_w,
                 "{msg}"
             );
@@ -369,10 +369,10 @@ mod tests {
         ];
 
         for ((x, y), coords) in test_data {
-            let adjacent = maze.adjacent(&Coord { x, y });
+            let adjacent = maze.adjacent(Coordinate::new(x, y));
             assert_eq!(adjacent.len(), coords.len());
 
-            for pos in coords.into_iter().map(|t| Coord { x: t.0, y: t.1 }) {
+            for pos in coords.into_iter().map(Coordinate::from) {
                 assert!(adjacent.contains(&pos));
             }
         }
