@@ -38,21 +38,15 @@ impl Coordinate {
     /// This function panics if `width` is `0`.
     pub fn from_index(offset: usize, width: usize) -> Self {
         assert!(width > 0, "width must be non-zero to create xy-coordinates");
-        Self {
-            x: offset / width,
-            y: offset % width,
-        }
+        Self::new(offset / width, offset % width)
     }
 
     /// Returns the coordinate directly north to this one.
     ///
     /// Returns `None` if the coordinate cannot be represented by [`usize`].
-    pub fn north(&self) -> Option<Coordinate> {
+    pub fn north(&self) -> Option<Self> {
         if self.y > 0 {
-            return Some(Coordinate {
-                x: self.x,
-                y: self.y - 1,
-            });
+            return Some(Self::new(self.x, self.y - 1));
         }
         None
     }
@@ -60,12 +54,9 @@ impl Coordinate {
     /// Returns the coordinate directly east to this one.
     ///
     /// Returns `None` if the coordinate cannot be represented by [`usize`].
-    pub fn east(&self) -> Option<Coordinate> {
+    pub fn east(&self) -> Option<Self> {
         if self.x < usize::MAX {
-            return Some(Coordinate {
-                x: self.x + 1,
-                y: self.y,
-            });
+            return Some(Self::new(self.x + 1, self.y));
         }
         None
     }
@@ -73,12 +64,9 @@ impl Coordinate {
     /// Returns the coordinate directly south to this one.
     ///
     /// Returns `None` if the coordinate cannot be represented by [`usize`].
-    pub fn south(&self) -> Option<Coordinate> {
+    pub fn south(&self) -> Option<Self> {
         if self.y < usize::MAX {
-            return Some(Coordinate {
-                x: self.x,
-                y: self.y + 1,
-            });
+            return Some(Self::new(self.x, self.y + 1));
         }
         None
     }
@@ -86,12 +74,9 @@ impl Coordinate {
     /// Returns the coordinate directly west to this one.
     ///
     /// Returns `None` if the coordinate cannot be represented by [`usize`].
-    pub fn west(&self) -> Option<Coordinate> {
+    pub fn west(&self) -> Option<Self> {
         if self.x > 0 {
-            return Some(Coordinate {
-                x: self.x - 1,
-                y: self.y,
-            });
+            return Some(Self::new(self.x - 1, self.y));
         }
         None
     }
@@ -102,13 +87,49 @@ impl Coordinate {
     /// `(0, 0)` for [`Direction::North`]. Likewise, this method would return
     /// `None` for a [`Direction::West`], since `(-1, 1)` is out of bounds for
     /// a [Coordinate].
-    pub fn by_direction(&self, dir: Direction) -> Option<Coordinate> {
+    pub fn by_direction(&self, dir: Direction) -> Option<Self> {
         match dir {
             Direction::North => self.north(),
             Direction::East => self.east(),
             Direction::South => self.south(),
             Direction::West => self.west(),
         }
+    }
+
+    /// Returns the [`Direction`] pointed to by the 2D vector formed with
+    /// this coordinate and the `to` position.
+    ///
+    /// Returns [`None`] if the coordinates are not aligned in a cardinal
+    /// direction.
+    pub fn direction<C: Into<Self>>(&self, to: C) -> Option<Direction> {
+        let to: Coordinate = to.into();
+        let dx = i64::try_from(to.x).ok()? - i64::try_from(self.x).ok()?;
+        let dy = i64::try_from(to.y).ok()? - i64::try_from(self.y).ok()?;
+
+        if dx != 0 && dy != 0 {
+            return None;
+        }
+
+        if dy > 0 {
+            return Some(Direction::South);
+        }
+        if dy < 0 {
+            return Some(Direction::North);
+        }
+        if dx > 0 {
+            return Some(Direction::East);
+        }
+        if dx < 0 {
+            return Some(Direction::West);
+        }
+
+        None
+    }
+}
+
+impl From<&Coordinate> for Coordinate {
+    fn from(value: &Coordinate) -> Self {
+        *value
     }
 }
 
