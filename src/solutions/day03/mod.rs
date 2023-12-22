@@ -98,9 +98,11 @@
 
 pub mod schematic;
 
-use std::{path::Path, str::FromStr};
+use std::path::Path;
 
 use anyhow::Result;
+
+use crate::fsutils::FromFile;
 
 use self::schematic::{Gear, Schematic};
 
@@ -116,7 +118,7 @@ fn part2(schematic: &Schematic) {
 
 /// Executes the solution with provided input file.
 pub fn exec<P: AsRef<Path>>(path: P) -> Result<()> {
-    let schematic = Schematic::from_str(&std::fs::read_to_string(path)?)?;
+    let schematic = Schematic::from_file(path)?;
 
     part1(&schematic);
     part2(&schematic);

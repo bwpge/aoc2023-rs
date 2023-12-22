@@ -286,9 +286,11 @@
 pub mod coord;
 pub mod maze;
 
-use std::{path::Path, str::FromStr};
+use std::path::Path;
 
 use anyhow::Result;
+
+use crate::fsutils::FromFile;
 
 use self::maze::Maze;
 
@@ -302,7 +304,7 @@ fn part2(maze: &Maze) {
 
 /// Executes the solution with provided input file.
 pub fn exec<P: AsRef<Path>>(path: P) -> Result<()> {
-    let maze = Maze::from_str(&std::fs::read_to_string(path)?)?;
+    let maze = Maze::from_file(path)?;
 
     part1(&maze);
     part2(&maze);

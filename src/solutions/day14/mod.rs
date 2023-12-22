@@ -153,11 +153,11 @@
 
 pub mod map;
 
-use std::{path::Path, str::FromStr};
+use std::path::Path;
 
 use anyhow::Result;
 
-use crate::Direction;
+use crate::{fsutils::FromFile, Direction};
 
 use self::map::Map;
 
@@ -173,7 +173,7 @@ fn part2(mut map: Map) {
 
 /// Executes the solution with provided input file.
 pub fn exec<P: AsRef<Path>>(path: P) -> Result<()> {
-    let map = Map::from_str(&std::fs::read_to_string(path)?)?;
+    let map = Map::from_file(path)?;
 
     part1(map.clone());
     part2(map);

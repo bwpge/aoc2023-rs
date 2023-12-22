@@ -153,11 +153,13 @@
 
 mod map;
 
-use std::{path::Path, str::FromStr};
+use std::path::Path;
 
 use anyhow::Result;
 
 pub use map::{Beam, Map};
+
+use crate::fsutils::FromFile;
 
 fn part1(map: &Map) {
     println!("Part 1: {}", map.trace(Map::STARTING_BEAM));
@@ -169,7 +171,7 @@ fn part2(map: &Map) {
 
 /// Executes the solution with provided input file.
 pub fn exec<P: AsRef<Path>>(path: P) -> Result<()> {
-    let map = Map::from_str(&std::fs::read_to_string(path)?)?;
+    let map = Map::from_file(path)?;
 
     part1(&map);
     part2(&map);
