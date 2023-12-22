@@ -117,8 +117,8 @@ fn part1(map: &Map) {
     println!("Part 1: {}", map.trace(Map::STARTING_BEAM));
 }
 
-fn part2() {
-    println!("Part 2: TODO");
+fn part2(map: &Map) {
+    println!("Part 2: {}", map.trace_max());
 }
 
 /// Executes the solution with provided input file.
@@ -126,7 +126,7 @@ pub fn exec<P: AsRef<Path>>(path: P) -> Result<()> {
     let map = Map::from_str(&std::fs::read_to_string(path)?)?;
 
     part1(&map);
-    part2();
+    part2(&map);
 
     Ok(())
 }

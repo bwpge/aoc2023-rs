@@ -89,6 +89,31 @@ impl Map {
         HashSet::<Coordinate>::from_iter(visited.into_iter().map(|b| b.pos)).len()
     }
 
+    /// Traces every beam of light from the edge of the map facing inward and
+    /// returns the maximum number of tiles that can be energized.
+    ///
+    /// For example, a beam of light starting on the south edge will face north,
+    /// right edge will face west, etc.
+    ///
+    /// This is a purely brute force solution and does not use any kind of
+    /// memoization or caching.
+    pub fn trace_max(&self) -> usize {
+        let mut count = 0;
+
+        let y_max = self.grid.height() - 1;
+        for x in 0..self.grid.width() {
+            count = count.max(self.trace(Beam::new((x, 0), Direction::South)));
+            count = count.max(self.trace(Beam::new((x, y_max), Direction::North)));
+        }
+        let x_max = self.grid.width() - 1;
+        for y in 0..self.grid.height() {
+            count = count.max(self.trace(Beam::new((1, y), Direction::East)));
+            count = count.max(self.trace(Beam::new((x_max, y), Direction::East)));
+        }
+
+        count
+    }
+
     /// Moves the beam one tile in it's current facing direction.
     ///
     /// Returns [`None`] if the next position is invalid or out of bounds.
@@ -204,5 +229,11 @@ mod tests {
     fn map_trace() {
         let m = Map::from_str(EXAMPLE_MAP).unwrap();
         assert_eq!(m.trace(Map::STARTING_BEAM), 46);
+    }
+
+    #[test]
+    fn map_trace_max() {
+        let m = Map::from_str(EXAMPLE_MAP).unwrap();
+        assert_eq!(m.trace_max(), 51);
     }
 }
