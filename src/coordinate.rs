@@ -1,5 +1,5 @@
 /// Represents a [cardinal direction](https://en.wikipedia.org/wiki/Cardinal_direction).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Direction {
     /// Up, forward, or an azimuth of 0°
     North,
