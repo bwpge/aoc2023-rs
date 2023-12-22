@@ -40,6 +40,7 @@ pub struct Beam {
 }
 
 impl Beam {
+    /// Creates a new [`Beam`] with position and facing direction.
     pub fn new<C: Into<Coordinate>>(pos: C, direction: Direction) -> Self {
         Self {
             pos: pos.into(),
