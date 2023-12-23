@@ -1,3 +1,5 @@
+use std::fmt;
+
 /// Represents a [cardinal direction](https://en.wikipedia.org/wiki/Cardinal_direction).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Direction {
@@ -11,10 +13,39 @@ pub enum Direction {
     West,
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+impl Direction {
+    /// An array of all cardinal directions.
+    ///
+    /// Useful for mapping and iterating across adjacent directions.
+    pub const ALL: [Direction; 4] = [
+        Direction::North,
+        Direction::East,
+        Direction::South,
+        Direction::West,
+    ];
+
+    pub fn opposite(&self) -> Self {
+        use Direction::*;
+
+        match self {
+            North => South,
+            East => West,
+            South => North,
+            West => East,
+        }
+    }
+}
+
+#[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Coordinate {
     pub x: usize,
     pub y: usize,
+}
+
+impl fmt::Debug for Coordinate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Coordinate({}, {})", self.x, self.y)
+    }
 }
 
 impl Coordinate {
@@ -41,7 +72,7 @@ impl Coordinate {
         Self::new(offset / width, offset % width)
     }
 
-    /// Returns the coordinate directly north to this one.
+    /// Returns the coordinate directly north of this one.
     ///
     /// Returns `None` if the coordinate cannot be represented by [`usize`].
     pub fn north(&self) -> Option<Self> {
@@ -51,7 +82,7 @@ impl Coordinate {
         None
     }
 
-    /// Returns the coordinate directly east to this one.
+    /// Returns the coordinate directly east of this one.
     ///
     /// Returns `None` if the coordinate cannot be represented by [`usize`].
     pub fn east(&self) -> Option<Self> {
@@ -61,7 +92,7 @@ impl Coordinate {
         None
     }
 
-    /// Returns the coordinate directly south to this one.
+    /// Returns the coordinate directly south of this one.
     ///
     /// Returns `None` if the coordinate cannot be represented by [`usize`].
     pub fn south(&self) -> Option<Self> {
@@ -71,7 +102,7 @@ impl Coordinate {
         None
     }
 
-    /// Returns the coordinate directly west to this one.
+    /// Returns the coordinate directly west of this one.
     ///
     /// Returns `None` if the coordinate cannot be represented by [`usize`].
     pub fn west(&self) -> Option<Self> {
