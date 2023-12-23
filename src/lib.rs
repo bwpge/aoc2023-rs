@@ -2,6 +2,7 @@
 
 pub mod cli;
 pub mod coordinate;
+pub mod dijkstra;
 pub mod fsutils;
 pub mod grid;
 pub mod macros;
