@@ -69,7 +69,7 @@ impl Coordinate {
     /// This function panics if `width` is `0`.
     pub fn from_index(offset: usize, width: usize) -> Self {
         assert!(width > 0, "width must be non-zero to create xy-coordinates");
-        Self::new(offset / width, offset % width)
+        Self::new(offset % width, offset / width)
     }
 
     /// Returns the coordinate directly north of this one.
