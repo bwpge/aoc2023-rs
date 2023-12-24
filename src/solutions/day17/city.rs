@@ -1,11 +1,8 @@
-use std::{fmt, hash::Hash, str::FromStr};
+use std::{fmt, hash::Hash, marker::PhantomData, str::FromStr};
 
-use crate::{
-    dijkstra::{Graph, Vertex},
-    Coordinate, Direction, Grid,
-};
+use crate::{dijkstra::Graph, Coordinate, Direction, Grid};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Block(u8);
 
 impl Block {
@@ -27,8 +24,22 @@ impl fmt::Display for Block {
     }
 }
 
-/// Encapsulates logic for traversing a [`City`], such as direction tracking.
-#[derive(Debug, Clone, Copy, Hash)]
+/// A type that implements additional logic for Dijkstra's algorithm in
+/// [`Graph`].
+pub trait DijkstraExt: Sized {
+    /// Returns a list of nodes Athis type considers adjacent, given a current
+    /// `node` and a `city`.
+    fn adjacent(node: &Node, city: &City<Self>) -> Vec<Node>;
+
+    /// Returns whether or not this type considers the algorithm finished, given
+    /// a current `node`.
+    fn is_done(_node: &Node) -> bool {
+        true
+    }
+}
+
+/// Encapsulates logic for traversing a [`City`] with Dijkstra's algorithm.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Node {
     pos: Coordinate,
     dir: Direction,
@@ -38,27 +49,6 @@ pub struct Node {
 impl Node {
     fn new(pos: Coordinate, dir: Direction, count: u8) -> Self {
         Self { pos, dir, count }
-    }
-}
-
-impl PartialEq for Node {
-    fn eq(&self, other: &Self) -> bool {
-        self.pos == other.pos
-    }
-}
-
-impl Eq for Node {}
-
-impl Vertex for Node {
-    type EqTy = Coordinate;
-    type VisitTy = Self;
-
-    fn eq_repr(&self) -> Self::EqTy {
-        self.pos
-    }
-
-    fn visit_repr(&self) -> Self::VisitTy {
-        *self
     }
 }
 
@@ -72,37 +62,57 @@ impl From<Coordinate> for Node {
     }
 }
 
-#[derive(Debug)]
-pub struct City {
-    grid: Grid<Block>,
-}
+/// Marker type that implements regular crucible traversal logic for a [`City`].
+pub struct Crucible;
 
-impl City {
-    pub const START: Node = Node {
-        pos: Coordinate { x: 0, y: 0 },
-        dir: Direction::South,
-        count: 0,
-    };
+impl DijkstraExt for Crucible {
+    fn adjacent(node: &Node, city: &City<Self>) -> Vec<Node> {
+        // movement restrictions:
+        // - maximum of 3 in same direction
+        // - can't move backwards
 
-    /// Returns the most southeast coordinate in the [`City`].
-    #[inline]
-    pub fn bottom_right(&self) -> Coordinate {
-        Coordinate::new(self.grid.width() - 1, self.grid.height() - 1)
-    }
-}
-
-impl Graph for City {
-    type Node = Node;
-    type Distance = usize;
-
-    fn adjacent(&self, node: &Self::Node) -> Vec<Self::Node> {
         let mut nodes = vec![];
         for d in Direction::ALL {
             if d == node.dir.opposite() || (node.dir == d && node.count >= 3) {
                 continue;
             }
             if let Some(pos) = node.pos.by_direction(d) {
-                if !self.grid.contains(pos) {
+                if !city.grid.contains(pos) {
+                    continue;
+                }
+                let count = 1 + if node.dir == d { node.count } else { 0 };
+                nodes.push(Node::new(pos, d, count));
+            }
+        }
+
+        nodes
+    }
+}
+
+/// Marker type that implements ultra crucible traversal logic for a [`City`].
+pub struct UltraCrucible;
+
+impl DijkstraExt for UltraCrucible {
+    fn adjacent(node: &Node, city: &City<Self>) -> Vec<Node> {
+        // movement restrictions:
+        // - minimum of 4 in same direction
+        // - maximum of 10 in same direction
+        // - can't move backwards
+        // NOTE: this implementation needs to account for the starting node
+        // which will have a direction with a count of 0; it shouldn't be forced
+        // to continue in the starting direction. all other nodes will have at
+        // least 1 movement.
+
+        let mut nodes = vec![];
+        for d in Direction::ALL {
+            if d == node.dir.opposite()
+                || (node.dir == d && node.count >= 10)
+                || (node.dir != d && node.count < 4 && node.count > 0)
+            {
+                continue;
+            }
+            if let Some(pos) = node.pos.by_direction(d) {
+                if !city.grid.contains(pos) {
                     continue;
                 }
                 let count = 1 + if node.dir == d { node.count } else { 0 };
@@ -113,17 +123,85 @@ impl Graph for City {
         nodes
     }
 
-    fn edge(&self, _: &Self::Node, to: &Self::Node) -> Self::Distance {
-        self.grid[to.pos].weight()
+    fn is_done(node: &Node) -> bool {
+        // this drove me crazy until i learned how to read:
+        // > Once an ultra crucible starts moving in a direction, it needs to
+        // > move a minimum of four blocks in that direction before it can turn
+        // > **(or even before it can stop at the end)**
+        // thus, the search cannot be considered complete if it has not moved at
+        // least 4 times in the current direction
+        node.count >= 4
     }
 }
 
-impl FromStr for City {
+/// A map of the city blocks, containing heat loss information in each cell.
+#[derive(Debug)]
+pub struct City<T: DijkstraExt> {
+    grid: Grid<Block>,
+    marker: PhantomData<T>,
+}
+
+impl<T: DijkstraExt> City<T> {
+    const START: Node = Node {
+        pos: Coordinate { x: 0, y: 0 },
+        dir: Direction::South,
+        count: 0,
+    };
+
+    /// Traverses the city from top-left to bottom-right, following pathing
+    /// rules of this city's crucible.
+    pub fn traverse(&self) -> usize {
+        self.min_distance(Self::START, self.bottom_right())
+    }
+
+    /// Consumes this [`City`] and changes the crucible marker type.
+    pub fn set_crucible<C: DijkstraExt>(self) -> City<C> {
+        City {
+            grid: self.grid,
+            marker: PhantomData,
+        }
+    }
+
+    /// Returns the most southeast coordinate in the [`City`].
+    #[inline]
+    fn bottom_right(&self) -> Coordinate {
+        Coordinate::new(self.grid.width() - 1, self.grid.height() - 1)
+    }
+}
+
+impl<T: DijkstraExt> Graph for City<T> {
+    type Node = Node;
+    type Distance = usize;
+
+    fn adjacent(&self, node: &Self::Node) -> Vec<Self::Node> {
+        T::adjacent(node, self)
+    }
+
+    fn edge(&self, _: &Self::Node, to: &Self::Node) -> Self::Distance {
+        self.grid[to.pos].weight()
+    }
+
+    fn nodes_eq(lhs: &Self::Node, rhs: &Self::Node) -> bool {
+        // the algorithm can consider a node match simply based on coordinates
+        lhs.pos == rhs.pos
+    }
+
+    fn is_done(&self, current: &Self::Node, _: &Self::Node) -> bool {
+        // each crucible has different logic for when the search is actually
+        // finished, even if destination coordinates are a match
+        T::is_done(current)
+    }
+}
+
+impl<T: DijkstraExt> FromStr for City<T> {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let grid = Grid::from_str(s)?;
-        Ok(Self { grid })
+        Ok(Self {
+            grid,
+            marker: PhantomData,
+        })
     }
 }
 
@@ -146,9 +224,28 @@ mod tests {
         2546548887735\n\
         4322674655533\n";
 
+    static EXAMPLE_MAP_ULTRA: &str = "\
+        111111111111\n\
+        999999999991\n\
+        999999999991\n\
+        999999999991\n\
+        999999999991\n";
+
+    macro_rules! city {
+        () => {
+            City::<Crucible>::from_str(EXAMPLE_MAP).unwrap()
+        };
+        ($val:expr) => {
+            City::<Crucible>::from_str($val).unwrap()
+        };
+        ($ty:ty, $val:expr) => {
+            City::<$ty>::from_str($val).unwrap()
+        };
+    }
+
     #[test]
     fn parse_city() {
-        let c = City::from_str(EXAMPLE_MAP).unwrap();
+        let c = city!();
         assert_eq!(c.grid.width(), 13);
         assert_eq!(c.grid.height(), 13);
         assert_eq!(c.grid[(12, 0)].0, 3);
@@ -159,11 +256,20 @@ mod tests {
     }
 
     #[test]
-    fn city_min_distance_example() {
-        let c = City::from_str(EXAMPLE_MAP).unwrap();
-        let from = City::START;
-        let to = c.bottom_right();
+    fn city_example_traverse() {
+        let c = city!();
+        assert_eq!(c.traverse(), 102);
+    }
 
-        assert_eq!(c.min_distance(from, to), 102);
+    #[test]
+    fn city_traverse_ultra() {
+        let c = city!(UltraCrucible, EXAMPLE_MAP_ULTRA);
+        assert_eq!(c.traverse(), 71);
+    }
+
+    #[test]
+    fn city_example_traverse_ultra() {
+        let c = city!(UltraCrucible, EXAMPLE_MAP);
+        assert_eq!(c.traverse(), 94);
     }
 }

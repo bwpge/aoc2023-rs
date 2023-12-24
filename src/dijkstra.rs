@@ -12,30 +12,58 @@ use num::Zero;
 ///
 /// This object contains minimum distances from a starting node, as well as a
 /// table of of previous nodes for each step in the graph. This object only has
-/// meaning when returned from [`Graph::dijkstra`], as the lookup tables are
+/// meaning when returned from [`Graph::dijkstra`], as the values contained are
 /// generated based on inputs to that method.
 pub struct Traversal<T: Graph> {
-    distances: HashMap<<T::Node as Vertex>::EqTy, T::Distance>,
-    previous: HashMap<<T::Node as Vertex>::EqTy, Option<<T::Node as Vertex>::VisitTy>>,
+    /// The starting  node of the traversal.
+    ///
+    /// All values in `distances` are the minimum distance from this node.
+    pub from: T::Node,
+    /// The destination node of the traversal.
+    ///
+    /// Stored in case the input `to` node has custom equality or hashing logic,
+    /// thus it might not be able to index into the `distances`/`previous` maps.
+    pub to: T::Node,
+    distances: HashMap<T::Node, T::Distance>,
+    previous: HashMap<T::Node, Option<T::Node>>,
 }
 
 impl<T: Graph> Traversal<T> {
-    fn new() -> Self {
+    fn new(from: T::Node, to: T::Node) -> Self {
         Self {
+            from,
+            to,
             distances: HashMap::new(),
             previous: HashMap::new(),
         }
     }
 
-    /// Returns a map of the shortest distances for node taken in the [`Graph`].
-    pub fn distances(&self) -> &HashMap<<T::Node as Vertex>::EqTy, T::Distance> {
+    /// Returns a map of the shortest distances for nodes in the [`Graph`] starting at `from`.
+    pub fn distances(&self) -> &HashMap<T::Node, T::Distance> {
         &self.distances
     }
 
     /// Returns a map of previous nodes for each step taken in the [`Graph`].
-    pub fn previous(
-        &self,
-    ) -> &HashMap<<T::Node as Vertex>::EqTy, Option<<T::Node as Vertex>::VisitTy>> {
+    ///
+    /// This map can be used to reconstruct the full path by reverse lookup of
+    /// each value as the next key, starting with `to`. For example:
+    ///
+    /// - `previous[to]` returns `Z`
+    /// - `previous[Z]` returns `Y`
+    /// - ...
+    /// - `previous[A]` returns `from`
+    /// - `previous[from]` returns [`None`]
+    ///
+    /// The above will create the shortest distance path as:
+    ///
+    /// ```txt
+    ///     from -> A -> ... -> Y -> Z -> to
+    /// ```
+    ///
+    /// Note that it is not guaranteed [`Traversal::from`] is the same as the
+    /// input `from` to [`Graph::dijkstra`] if the node type has different logic
+    /// for hashing and equality.
+    pub fn previous(&self) -> &HashMap<T::Node, Option<T::Node>> {
         &self.previous
     }
 }
@@ -58,19 +86,20 @@ impl<T: Graph> Traversal<T> {
 /// [Dijkstra's algorithm]: https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm
 pub trait Graph: Sized {
     /// The type used to represent nodes or *vertices* in the *graph*.
-    type Node: Vertex;
+    type Node: Clone + Eq + Hash;
+
     /// The type used to represent edge weights.
     type Distance: Clone + Ord + Add + Zero;
 
     /// Executes Dijkstra's algorithm and returns traversal information.
     ///
     /// This method will short circuit once finding the `to` node. Matching this
-    /// node relies on [`Vertex::eq_repr`], whereas visited information relies
-    /// on [`Vertex::visit_repr`]. See [`Vertex`] for more information.
+    /// node relies on [`Graph::nodes_eq`], whereas visited information relies
+    /// on the `Node` type's [`Hash`] implementation.
     ///
     /// Implementation adapted from: <https://codereview.stackexchange.com/a/202879>
     fn dijkstra(&self, from: Self::Node, to: Self::Node) -> Traversal<Self> {
-        let mut map = Traversal::new();
+        let mut map = Traversal::new(from.clone(), to.clone());
         let mut visited = HashSet::new();
         let mut queue = BinaryHeap::new();
 
@@ -79,37 +108,38 @@ pub trait Graph: Sized {
         // return None for missing keys -- we can use that as "infinity" and not
         // have to further restrict the distance type (or use some faulty value
         // like usize::MAX)
-        map.distances.insert(from.eq_repr(), Self::Distance::zero());
-        map.previous.insert(from.eq_repr(), None);
+        map.distances.insert(from.clone(), Self::Distance::zero());
+        map.previous.insert(from.clone(), None);
 
         // using the Visit type here allows us to generalize "node with
         // distance", control the Ord logic for a min-heap, and not have to
         // require the Node type to provide its own distance value
         queue.push(Visit(from, Self::Distance::zero()));
         while let Some(Visit(node, dist)) = queue.pop() {
-            // check if we found the target (use eq type)
-            if node.eq_repr() == to.eq_repr() {
+            if Self::nodes_eq(&node, &to) && self.is_done(&node, &to) {
+                map.to = node;
                 return map;
             }
-            // check if we saw this node (use visit type))
-            if !visited.insert(node.visit_repr()) {
+            if !visited.insert(node.clone()) {
                 continue;
             }
 
             for n in self.adjacent(&node) {
-                // we must use the eq type for distance/previous tracking
-                let key = n.eq_repr();
                 let d = dist.clone() + self.edge(&node, &n);
 
                 // using map_or here handles a None in the distance map -- this
                 // is equivalent to "infinity" in the algorithm
-                if map.distances.get(&key).map_or(true, |dist| &d < dist) {
-                    map.distances.insert(key.clone(), d.clone());
-                    map.previous.insert(key, Some(node.visit_repr()));
+                if map.distances.get(&n).map_or(true, |dist| &d < dist) {
+                    // IMPORTANT: we need to ensure the value is overwritten for
+                    // keys that can be `==` (equal) but have different hash values
+                    map.distances.remove(&n);
+                    map.previous.remove(&n);
+                    map.distances.insert(n.clone(), d.clone());
+                    map.previous.insert(n.clone(), Some(node.clone()));
                 }
                 // IMPORTANT: this neighbor needs to be added to the queue
                 // regardless of the updated distance. this is a consequence of
-                // allowing different visited logic with equality logic.
+                // allowing custom "equality" logic.
                 queue.push(Visit(n, d));
             }
         }
@@ -134,7 +164,7 @@ pub trait Graph: Sized {
         let to: Self::Node = to.into();
         let map = self.dijkstra(from, to.clone());
 
-        map.distances[&to.eq_repr()].clone()
+        map.distances[&map.to].clone()
     }
 
     /// Returns a list of neighboring nodes, given an input `node` (e.g., all
@@ -160,51 +190,42 @@ pub trait Graph: Sized {
     ///
     /// # Warning
     ///
-    /// Because of the short-circuiting nature of the algorithm (e.g., marking
-    /// nodes as "closed" or "visited" once all neighbors are visited), the
-    /// `edge` method must always provide a positive number.
+    /// Because of the nature of the algorithm that "settles" previous nodes
+    /// (e.g., marking them as "closed" once all neighbors are visited), the
+    /// `edge` method must always provide `0` or a positive number. In a
+    /// mathematical sense, for every value `D` returned by `edge`, it must hold
+    /// that `D + D_prev <= result`.
     fn edge(&self, from: &Self::Node, to: &Self::Node) -> Self::Distance;
+
+    /// Returns whether or not nodes are considered equal for purposes of ending
+    /// the algorithm.
+    ///
+    /// This serves as a custom equality method that can be implemented outside
+    /// a node's type. This also allows custom logic that can be encapsulated
+    /// within the context of this trait and not affect other behavior (such as
+    /// [`Hash`] or [`Ord`]).
+    ///
+    /// This method uses `==` for the [`Graph::Node`] type by default.
+    fn nodes_eq(lhs: &Self::Node, rhs: &Self::Node) -> bool {
+        lhs.eq(rhs)
+    }
+
+    /// Returns whether or not the algorithm is allowed to stop on a destination
+    /// node match with [`Graph::nodes_eq`].
+    ///
+    /// This allows for some final checks on the algorithm implemented outside
+    /// of the node type. The `current` node is the last node removed from the
+    /// top of the min-heap, while the `to` node is the input received from the
+    /// original invocation.
+    ///
+    /// By default, this method simply returns `true`.
+    fn is_done(&self, _current: &Self::Node, _to: &Self::Node) -> bool {
+        true
+    }
 }
 
-/// A [`Graph`] *vertex*.
-///
-/// This trait encapsulates pathing and traversal logic used by [`Graph`] for
-/// visiting nodes and checking equality.
-pub trait Vertex: Clone {
-    /// The type that handles equality logic of *vertices*.
-    ///
-    /// This may be the same as `VisitTy`, but is not required to be.
-    type EqTy: Clone + Eq + Hash;
-
-    /// The type that handles visited logic of *vertices*.
-    ///
-    /// This may be the same as `EqTy`, but is not required to be.
-    type VisitTy: Clone + Eq + Hash;
-
-    /// Returns the node's *equality* representation.
-    ///
-    /// This is used for checking equality of nodes (e.g., if the algorithm has
-    /// reached the destination). This differs from [`Vertex::visit_repr`]
-    /// because the algorithm can track "seen" or "visited" nodes with different
-    /// qualities from those that determine equality (e.g., comparing X/Y
-    /// coordinates for equality and comparing direction, rotation, etc. to
-    /// consider a node "visited"). This allows nodes to possibly be visited
-    /// multiple times from different directions, while still correctly tracking
-    /// weights for *equivalent* nodes.
-    fn eq_repr(&self) -> Self::EqTy;
-
-    /// Returns the node's *visited* representation for tracking intermediate
-    /// steps in the algorithm.
-    ///
-    /// This type may be different from the [`Vertex::eq_repr`], and will
-    /// typically be more detailed to track movement constraints in the *graph*.
-    ///
-    /// Note that there is a significant performance penalty if this value does
-    /// not have the same logic as `eq_repr`, since the algorithm will visit the
-    /// same node multiple times.
-    fn visit_repr(&self) -> Self::VisitTy;
-}
-
+/// Wrapper type for node-distance pairs that implements min-heap [`Ord`] logic
+/// for [`BinaryHeap`].
 struct Visit<T, D>(T, D);
 
 impl<T, D: Ord> Ord for Visit<T, D> {
@@ -233,19 +254,6 @@ mod tests {
     use super::*;
 
     struct TestGraph;
-
-    impl Vertex for char {
-        type EqTy = Self;
-        type VisitTy = Self;
-
-        fn eq_repr(&self) -> Self::EqTy {
-            *self
-        }
-
-        fn visit_repr(&self) -> Self::VisitTy {
-            *self
-        }
-    }
 
     impl Graph for TestGraph {
         type Node = char;
