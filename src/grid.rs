@@ -147,6 +147,10 @@ impl<T> Grid<T> {
             .swap(c1.to_index(self.width), c2.to_index(self.width));
     }
 
+    pub fn iter(&self) -> core::slice::Iter<'_, T> {
+        self.inner.iter()
+    }
+
     /// Creates an iterator over all elements in the grid in one dimension.
     ///
     /// Elements are yielded from left-to-right, top-to-bottom.
@@ -210,6 +214,18 @@ impl<T> Grid<T> {
     /// so only one column of references is created at a time.
     pub fn columns(&self) -> ColumnIter<'_, T> {
         ColumnIter::new(self)
+    }
+}
+
+impl<T: Default> Grid<T> {
+    /// Creates a new [`Grid`] with the specified dimensions, using the
+    /// `T::default()` for cell values.
+    pub fn new_default(width: usize, height: usize) -> Self {
+        let size = width * height;
+        let mut inner = Vec::with_capacity(size);
+        (0..size).for_each(|_| inner.push(T::default()));
+
+        Self { inner, width }
     }
 }
 
