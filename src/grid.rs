@@ -138,7 +138,11 @@ impl<T> Grid<T> {
         self.get(pos).is_some()
     }
 
-    //
+    /// Swaps the cell values at `a` and `b`.
+    ///
+    /// # Warning
+    ///
+    /// This method does not check that `a` and `b` are valid coordinates.
     pub fn swap<A: Into<Coordinate>, B: Into<Coordinate>>(&mut self, a: A, b: B) {
         let c1: Coordinate = a.into();
         let c2: Coordinate = b.into();
@@ -147,6 +151,7 @@ impl<T> Grid<T> {
             .swap(c1.to_index(self.width), c2.to_index(self.width));
     }
 
+    /// Returns a slice iterator over the internal grid data.
     pub fn iter(&self) -> core::slice::Iter<'_, T> {
         self.inner.iter()
     }
